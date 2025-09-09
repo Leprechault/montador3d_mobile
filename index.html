@@ -94,12 +94,20 @@
   <div id="snack"></div>
 
   <script>
+    // Loader com fallbacks de CDN p/ Three.js + OrbitControls
     function addScript(src){return new Promise((res,rej)=>{const s=document.createElement('script');s.src=src;s.onload=res;s.onerror=()=>rej(new Error('fail '+src));document.head.appendChild(s);});}
     async function loadThree(){
-      const libs=['https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.min.js','https://unpkg.com/three@0.160.0/build/three.min.js','https://cdnjs.cloudflare.com/ajax/libs/three.js/0.160.0/three.min.js'];
+      const libs=[
+        'https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.min.js',
+        'https://unpkg.com/three@0.160.0/build/three.min.js',
+        'https://cdnjs.cloudflare.com/ajax/libs/three.js/0.160.0/three.min.js'
+      ];
       let ok=false; for(const u of libs){try{await addScript(u); if(window.THREE){ok=true; break;}}catch(e){}}
       if(!ok) throw new Error('Three.js não carregou (CDN bloqueada)');
-      const ctrls=['https://cdn.jsdelivr.net/npm/three@0.160.0/examples/js/controls/OrbitControls.js','https://unpkg.com/three@0.160.0/examples/js/controls/OrbitControls.js'];
+      const ctrls=[
+        'https://cdn.jsdelivr.net/npm/three@0.160.0/examples/js/controls/OrbitControls.js',
+        'https://unpkg.com/three@0.160.0/examples/js/controls/OrbitControls.js'
+      ];
       for(const u of ctrls){try{await addScript(u); if(THREE.OrbitControls) break;}catch(e){}}
     }
 
@@ -123,6 +131,7 @@
       function toast(msg){ const s=document.getElementById('snack'); s.textContent = msg; s.style.display='block'; clearTimeout(s._t); s._t=setTimeout(()=>s.style.display='none', 1400); }
       function setSelected(m){ selected = m; document.getElementById('selLabel').textContent = selected? (selected.userData.label||'Peça'): 'Nenhuma peça'; }
       function ensureChassis(){ if(chassis) return; const matGray = new THREE.MeshPhongMaterial({color:0x888888}); chassis = new THREE.Mesh(new THREE.BoxGeometry(6,0.4,8), matGray); chassis.position.set(0,0.2,0); chassis.userData={type:'chassi',label:'Chassi'}; scene.add(chassis); }
+
       function addPart(key){
         ensureChassis();
         let mesh; const matGray = new THREE.MeshPhongMaterial({color:0x888888});
@@ -150,6 +159,7 @@
         }
         scene.add(mesh); parts.push(mesh); setSelected(mesh); snapTo(lastSlot); toast(selected.userData.label+ ' adicionada');
       }
+
       function snapTo(key){
         if(!chassis || !selected) return;
         const b=new THREE.Box3().setFromObject(chassis); const c=b.getCenter(new THREE.Vector3());
@@ -161,13 +171,16 @@
         if(key==='top')      t.position.set(c.x, y + 0.6, c.z);
         if(key==='front')    t.position.set(c.x, y + 0.4, b.max.z + 0.5);
       }
+
       document.querySelectorAll('[data-add]').forEach(b=> b.onclick = ()=> addPart(b.getAttribute('data-add')));
       document.querySelectorAll('[data-slot]').forEach(b=> b.onclick = ()=> { lastSlot = b.getAttribute('data-slot'); snapTo(lastSlot); });
+
       const ray = new THREE.Raycaster(); const mouse = new THREE.Vector2();
       renderer.domElement.addEventListener('pointerdown', (e)=>{
         const r = renderer.domElement.getBoundingClientRect(); mouse.x = ((e.clientX - r.left)/r.width)*2 - 1; mouse.y = -((e.clientY - r.top)/r.height)*2 + 1; ray.setFromCamera(mouse, camera);
         const hits = ray.intersectObjects(parts.concat(chassis? [chassis]: [])); if(hits[0]) setSelected(hits[0].object);
       });
+
       const step=0.2, rot=0.15;
       mvUp.onclick   = ()=>{ if(selected) selected.position.z -= step; };
       mvDown.onclick = ()=>{ if(selected) selected.position.z += step; };
@@ -177,13 +190,16 @@
       rotR.onclick   = ()=>{ if(selected) selected.rotation.y -= rot; };
       btnSnap.onclick= ()=> snapTo(lastSlot);
       btnRemove.onclick= ()=>{ if(selected && selected!==chassis){ scene.remove(selected); const i=parts.indexOf(selected); if(i>=0) parts.splice(i,1); setSelected(null); } };
+
       btnFinalize.onclick = ()=>{ orbit.target.set(0,0,0); camera.position.set(10,10,12); };
       btnExport.onclick = ()=>{
         const data = parts.map(m=>({label:m.userData.label, pos:{x:m.position.x,y:m.position.y,z:m.position.z}, rot:{x:m.rotation.x,y:m.rotation.y,z:m.rotation.z}}));
         const json = JSON.stringify(data, null, 2); const blob = new Blob([json], {type:'application/json'}); const url=URL.createObjectURL(blob); const a=document.createElement('a'); a.href=url; a.download='montagem.json'; a.click(); URL.revokeObjectURL(url);
       };
+
       function resize(){ const el = canvas.parentElement; const w = el.clientWidth; const h = el.clientHeight || Math.round(window.innerHeight*0.6); renderer.setSize(w,h,false); camera.aspect = w/h; camera.updateProjectionMatrix(); }
       window.addEventListener('resize', resize); resize();
+
       function loop(){ renderer.render(scene, camera); requestAnimationFrame(loop); } loop();
     })();
   </script>
